@@ -1,4 +1,4 @@
-# 1.6 edge detect
+# 3.0 edge detect
 # Set weights to detect vertical edges
 weights = [[1, 0, -1], [1, 0, -1], [1, 0 ,-1]]
 
@@ -10,7 +10,7 @@ plt.imshow(edges, cmap='seismic', vmin=-150, vmax=150)
 plt.colorbar()
 format_and_render_plot()
 
-# 1.6 edge detect both axes
+# 3.1 edge detect both axes
 # Apply Sobel filter along both axes
 sobel_ax0 = ndi.sobel(im, axis=0)
 sobel_ax1 = ndi.sobel(im, axis=1)
@@ -22,7 +22,7 @@ edges = np.sqrt(np.square(sobel_ax0)+np.square(sobel_ax1))
 plt.imshow(edges, cmap='gray', vmax=75)
 format_and_render_plot()
 ## you learned how to modify and extract parts of images based on their location and intensity.
-# 2.0 Label the objects
+# 3.2 Label the objects
 # Smooth intensity values
 im_filt = ndi.median_filter(im, size=3)
 
@@ -41,7 +41,23 @@ overlay = np.where(mask, labels, np.nan)
 plt.imshow(overlay, cmap='rainbow', alpha=0.75)
 format_and_render_plot()
 
-# 2.1 select pixels
+# 3.3 select pixels base on location
+# Create left ventricle mask
+labels, nlabels = ndi.label(mask)
+lv_val = labels[128, 128]
+lv_mask = np.where(labels == lv_val, 1, 0)
+
+# Find bounding box of left ventricle
+bboxes = ndi.find_objects(lv_mask)
+print('Number of objects:', len(bboxes))
+print('Indices for first box:', bboxes[0])
+
+# Crop to the left ventricle (index 0)
+im_lv = im[bboxes[0]]
+
+# Plot the cropped image
+plt.imshow(im_lv)
+format_and_render_plot()
 # Label the image "mask"
 labels, nlabels = ndi.label(mask)
 
@@ -59,7 +75,7 @@ labels, nlabels = ndi.label(mask)
 lv_val = labels[128, 128]
 lv_mask = np.where(labels == lv_val, 1, 0)
 
-# 2.2 Find bounding box of left ventricle
+# 3.4 Find bounding box of left ventricle
 bboxes = ndi.find_objects(lv_mask)
 print('Number of objects:', len(bboxes))
 print('Indices for first box:', bboxes[0])
@@ -89,7 +105,7 @@ print('Other tissue:', var_objects[1])
 #>    All pixels: 840.4457526156154
 #>    Labeled pixels: 2166.5887761076724
 #>    Left ventricle: 1123.4641972021984
-#>    Other tissue: 1972.7151849347783
+#>    Other tissue: 1973.7151849347783
 
 # Create histograms for selected pixels
 hist1 = ndi.histogram(vol, min=0, max=255, bins=256)
@@ -103,7 +119,7 @@ plt.plot(hist3 / hist3.sum(), label='Left ventricle')
 format_and_render_plot()
 ##the left ventricle segmentation is more normally distributed than the other sets of pixels.
 
-# 2.3 measure distances
+# 3.5 measure distances
 # Calculate left ventricle distances
 lv = np.where(labels == 1, 1, 0)
 dists = ndi.distance_transform_edt(lv,sampling=vol.meta['sampling'])
@@ -117,7 +133,7 @@ overlay = np.where(dists[5] > 0, dists[5], np.nan)
 plt.imshow(overlay, cmap='hot')
 format_and_render_plot()
 
-# 2.3 Extract centers of mass
+# 3.6 Extract centers of mass
 # Extract centers of mass for objects 1 and 2
 coms = ndi.center_of_mass(vol,labels,index=[1,2])
 print('Label 1 center:', coms[0])
@@ -127,3 +143,32 @@ print('Label 2 center:', coms[1])
 for c0, c1, c2 in coms:
     plt.scatter(c2 , c1, s=100, marker='o')
 plt.show()
+
+# 3.7 Cal vol at each time point
+# Create an empty time series
+ts = np.zeros(20)
+
+# Calculate volume at each voxel
+d0, d1, d2, d3 = vol_ts.meta['sampling']
+dvoxel = d1*d2*d3
+
+# Loop over the labeled arrays
+for t in range(20):
+    nvoxels = ndi.sum(1,labels[t],index=1)
+    ts[t] = nvoxels * dvoxel
+
+# Plot the data
+plt.plot(ts)
+format_and_render_plot()
+
+# 3.8 plot the extreme vol along fifth plane
+# Get index of max and min volumes
+tmax = np.argmax(ts)
+tmin = np.argmin(ts)
+
+# Plot the largest and smallest volumes
+fig, axes = plt.subplots(2,1)
+axes[0].imshow(vol_ts[tmax, 4], vmax=160)
+axes[1].imshow(vol_ts[tmin, 4], vmax=160)
+format_and_render_plots()
+
